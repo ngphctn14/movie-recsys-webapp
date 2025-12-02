@@ -10,6 +10,17 @@ services:
     depends_on:
       - mongodb
 
+  client:
+    build: ./client
+    container_name: client_container
+    restart: always
+    ports:
+      - "5173:5173"
+    env_file:
+      - ./client/.env.docker
+    depends_on:
+      - server
+
   mongodb:
     image: mongodb/mongodb-community-server:8.0-ubi8
     container_name: mongodb_container
