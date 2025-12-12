@@ -24,3 +24,17 @@ export const updateMovie = async (id, updateData) => {
 export const deleteMovie = async (id) => {
   return await Movie.findByIdAndDelete(id);
 };
+
+export const getTrending = async (limit = 10) => {
+  // Sort by popularity (descending)
+  return await Movie.find()
+    .sort({ popularity: -1 })
+    .limit(limit);
+};
+
+export const getTopRated = async (limit = 10) => {
+  // Sort by voteAverage (descending)
+  return await Movie.find()
+    .sort({ voteAverage: -1 })
+    .limit(limit);
+};

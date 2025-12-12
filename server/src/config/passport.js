@@ -10,13 +10,14 @@ const cookieExtractor = (req) => {
   return token;
 };
 
-const options = {
-  jwtFromRequest: cookieExtractor,
-  secretOrKey: process.env.JWT_SECRET,
-  passReqToCallback: true,
-};
 
 const configurePassport = (passport) => {
+  const options = {
+    jwtFromRequest: cookieExtractor,
+    secretOrKey: process.env.JWT_SECRET,
+    passReqToCallback: true,
+  };
+
   passport.use(
     new JwtStrategy(options, async (req, jwt_payload, done) => {
       try {

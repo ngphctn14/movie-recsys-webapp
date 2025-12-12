@@ -4,22 +4,22 @@ import registerDto from './dto/register.dto.js';
 import loginDto from './dto/login.dto.js';
 import Blacklist from './blacklist.schema.js';
 
-// Helper to set the cookie
 const sendTokenResponse = (result, statusCode, res) => {
   const token = result.token;
   
   const options = {
-    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 30 days
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict'
+    secure: process.env.NODE_ENV === 'prod',
+    sameSite: "None",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   };
 
-  // Remove token from JSON response (it's in the cookie now)
+  console.log(token);
+
   const { token: _, ...userResponse } = result;
 
   res.status(statusCode)
-    .cookie('jwt', token, options)
+    .cookie('accessToken', token, options)
     .json(userResponse);
 };
 
@@ -49,7 +49,7 @@ export const login = async (req, res) => {
 
 export const logout = async (req, res) => {
   try {
-    const token = req.cookies['jwt'];
+    const token = req.cookies['accessToken'];
 
     if (token) {
       const decoded = jwt.decode(token);
@@ -61,13 +61,22 @@ export const logout = async (req, res) => {
       }
     }
 
-    res.cookie('jwt', '', {
-      expires: new Date(0),
-      httpOnly: true
-    });
-    
+    res.clearCookie("accessToken");
     res.status(200).json({ message: 'User logged out successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Logout failed', error: error.message });
   }
+};
+
+export const getMe = (req, res) => {
+  const user = req.user;
+  
+  res.status(200).json({
+    _id: user._id,
+    id: user.id,
+    fullName: user.fullName,
+    email: user.email,
+    role: user.role,
+    avatar: user.avatar,
+  });
 };

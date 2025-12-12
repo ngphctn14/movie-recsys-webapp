@@ -58,3 +58,21 @@ export const remove = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const getTrending = async (req, res) => {
+  try {
+    const movies = await movieService.getTrending();
+    res.json(movies);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getTopRated = async (req, res) => {
+  try {
+    const movies = await movieService.getTopRated();
+    res.json(movies);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

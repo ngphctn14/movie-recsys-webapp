@@ -1,16 +1,18 @@
-import { useState } from 'react';
-import React from 'react';
+import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import Carousel from 'react-multi-carousel';
 import 'react-multi-carousel/lib/styles.css';
 import Modal from 'react-modal';
 import YouTube from 'react-youtube';
+import axiosClient from '../api/axiosClient';
+
+// Fallback for image URL if env var is missing
+const IMG_URL = import.meta.env?.VITE_IMG_URL || 'https://image.tmdb.org/t/p/w500';
 
 const opts = {
   height: '390',
   width: '640',
   playerVars: {
-    // https://developers.google.com/youtube/player_parameters
     autoplay: 1,
   },
 };
@@ -23,12 +25,17 @@ const customStyles = {
     bottom: 'auto',
     marginRight: '-50%',
     transform: 'translate(-50%, -50%)',
+    backgroundColor: '#000',
+    border: '1px solid #333',
+  },
+  overlay: {
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    zIndex: 1000,
   },
 };
 
 const responsive = {
   superLargeDesktop: {
-    // the naming can be any, depends on you.
     breakpoint: { max: 4000, min: 3000 },
     items: 10,
   },
@@ -47,7 +54,7 @@ const responsive = {
 };
 
 const MovieList = ({ title, data }) => {
-  const [modalIsOpen, setModalIsOpen] = React.useState(false);
+  const [modalIsOpen, setModalIsOpen] = useState(false);
   const [trailerKey, setTrailerKey] = useState('');
 
   const handleTrailer = async (movieId) => {
@@ -55,26 +62,28 @@ const MovieList = ({ title, data }) => {
     setModalIsOpen(true);
 
     try {
-      const url = `https://api.themoviedb.org/3/movie/${movieId}/videos?language=en-US`;
-      const options = {
-        method: 'GET',
-        headers: {
-          accept: 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_API_KEY}`,
-        },
-      };
+      // Fetch details from YOUR backend (Schema: _id, trailerUrl, etc.)
+      const movieData = await axiosClient.get(`/movies/${movieId}`);
 
-      const response = await fetch(url, options);
-      const data = await response.json();
-      const trailer = data.results?.find(
-        (video) => video.site === 'YouTube' && video.type === 'Trailer'
-      );
-
-      if (trailer) {
-        setTrailerKey(trailer.key);
-        setModalIsOpen(true);
+      // Parse the YouTube URL stored in your DB (e.g., "https://www.youtube.com/watch?v=VIDEO_ID")
+      if (movieData && movieData.trailerUrl) {
+        try {
+          const url = new URL(movieData.trailerUrl);
+          const videoId = url.searchParams.get('v');
+          
+          if (videoId) {
+            setTrailerKey(videoId);
+          } else {
+            setModalIsOpen(false);
+            alert('Trailer link không hợp lệ.');
+          }
+        } catch (e) {
+          console.error('Error parsing trailer URL:', e);
+          setModalIsOpen(false);
+        }
       } else {
-        alert('Phim này chưa có trailer nhé!');
+        setModalIsOpen(false);
+        alert('Phim này chưa có trailer trong cơ sở dữ liệu!');
       }
     } catch (error) {
       setModalIsOpen(false);
@@ -85,27 +94,33 @@ const MovieList = ({ title, data }) => {
   return (
     <div className='text-white p-10 mb-10'>
       <h2 className='uppercase text-xl font-bold mb-4'>{title}</h2>
+      
       <Carousel responsive={responsive} className='flex items-center space-x-4'>
-        {data.length > 0 &&
+        {data && data.length > 0 &&
           data.map((item) => (
             <div
-              key={item.id}
+              // Schema uses _id for MongoDB documents
+              key={item._id}
               className='w-[200px] h-[300px] relative group'
-              onClick={() => handleTrailer(item.id)}
+              onClick={() => handleTrailer(item._id)}
             >
               <div className='w-full h-full group-hover:scale-105 transition-transform duration-300 ease-in-out cursor-pointer'>
-                <div className='absolute top-0 left-0 w-full h-full bg-black/40' />
+                <div className='absolute top-0 left-0 w-full h-full bg-black/40 group-hover:bg-black/20 transition-colors' />
+                {/* Schema uses posterPath (camelCase) */}
                 <img
-                  src={`${import.meta.env.VITE_IMG_URL}${item.poster_path}`}
-                  alt='item.title'
-                  className='w-full h-full object-cover rounded-lg '
+                  src={
+                    item.posterPath
+                      ? (item.posterPath.startsWith('http') ? item.posterPath : `${IMG_URL}${item.posterPath}`)
+                      : 'https://via.placeholder.com/200x300?text=No+Image'
+                  }
+                  alt={item.title}
+                  className='w-full h-full object-cover rounded-lg'
+                  onError={(e) => { e.target.src = 'https://via.placeholder.com/200x300?text=No+Image'; }}
                 />
-                <div className='absolute bottom-4 left-2 '>
-                  <p className='uppercase text-md'>
-                    {item.name ||
-                      item.original_name ||
-                      item.title ||
-                      item.original_title}
+                <div className='absolute bottom-4 left-2 p-2'>
+                  <p className='uppercase text-md font-semibold drop-shadow-md'>
+                    {/* Schema uses title and originalTitle */}
+                    {item.title || item.originalTitle}
                   </p>
                 </div>
               </div>
@@ -117,7 +132,8 @@ const MovieList = ({ title, data }) => {
         isOpen={modalIsOpen}
         onRequestClose={() => setModalIsOpen(false)}
         style={customStyles}
-        contentLabel='Example Modal'
+        contentLabel='Trailer Modal'
+        ariaHideApp={false}
       >
         <YouTube videoId={trailerKey} opts={opts} />
       </Modal>
@@ -127,7 +143,7 @@ const MovieList = ({ title, data }) => {
 
 MovieList.propTypes = {
   title: PropTypes.string.isRequired,
-  data: PropTypes.array.isRequired,
+  data: PropTypes.array,
 };
 
 export default MovieList;
